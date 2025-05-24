@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="#">设备管理</a></li>
+            <li><a href="software.html">软件管理</a></li>
+            <li><a href="revenue.html">收益管理</a></li>
+            <li><a href="dispatch.html">派费管理</a></li>
+            <li><a href="record.html">记录管理</a></li>
+            <li><a href="conversion.html">转化管理</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="form-container">
+            <h2>添加设备</h2>
+            <form id="deviceForm">
+                <div class="form-group">
+                    <label for="deviceName">设备名称：</label>
+                    <input type="text" id="deviceName" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">手机号：</label>
+                    <input type="tel" id="phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="registrantName">注册人姓名：</label>
+                    <input type="text" id="registrantName" required>
+                </div>
+                <div class="form-group">
+                    <label>支付方式：</label>
+                    <label><input type="radio" name="payment" value="支付宝" required> 支付宝</label>
+                    <label><input type="radio" name="payment" value="微信" required> 微信</label>
+                </div>
+                <div class="form-group">
+                    <label for="paymentName">支付方式实名信息：</label>
+                    <input type="text" id="paymentName" required>
+                </div>
+                <div class="form-group">
+                    <label for="kuaishouPhone">快手绑定手机号：</label>
+                    <input type="tel" id="kuaishouPhone" required>
+                </div>
+                <div class="form-group">
+                    <label for="douyinPhone">抖音绑定手机号：</label>
+                    <input type="tel" id="douyinPhone" required>
+                </div>
+                <button type="submit">提交</button>
+            </form>
+        </div>
+        <div class="device-list">
+            <h2>设备列表</h2>
+            <table id="deviceTable">
+                <thead>
+                    <tr>
+                        <th>设备名称</th>
+                        <th>手机号</th>
+                        <th>注册人姓名</th>
+                        <th>支付方式</th>
+                        <th>支付方式实名信息</th>
+                        <th>快手绑定手机号</th>
+                        <th>抖音绑定手机号</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+        <script>
+            function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const color = `hsl(${Math.abs(hash % 360)}, 50%, 90%)`;
+    return color;
+}
+
+function deleteDevice(index) {
+    const devices = JSON.parse(localStorage.getItem('devices')) || [];
+    devices.splice(index, 1);
+    localStorage.setItem('devices', JSON.stringify(devices));
+    loadDevices();
+}
+
+function loadDevices() {
+    const devices = JSON.parse(localStorage.getItem('devices')) || [];
+    const tbody = document.querySelector('#deviceTable tbody');
+    tbody.innerHTML = devices.map(device => {
+        const bgColor = stringToColor(device.deviceName);
+        return `<tr style="background-color: ${bgColor};">
+            <td>${device.deviceName}</td>
+            <td>${device.phone}</td>
+            <td>${device.registrantName || ''}</td>
+            <td>${device.payment}</td>
+            <td>${device.paymentName || ''}</td>
+            <td>${device.kuaishouPhone}</td>
+            <td>${device.douyinPhone}</td>
+            <td><button onclick="deleteDevice(${devices.indexOf(device)})">删除</button></td>
+        </tr>`;
+    }).join('');
+}
+
+            document.getElementById('deviceForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const device = {
+                    deviceName: document.getElementById('deviceName').value,
+                    phone: document.getElementById('phone').value,
+                    registrantName: document.getElementById('registrantName').value,
+                    payment: document.querySelector('input[name="payment"]:checked').value,
+                    paymentName: document.getElementById('paymentName').value,
+                    kuaishouPhone: document.getElementById('kuaishouPhone').value,
+                    douyinPhone: document.getElementById('douyinPhone').value
+                };
+                const devices = JSON.parse(localStorage.getItem('devices')) || [];
+                devices.push(device);
+                localStorage.setItem('devices', JSON.stringify(devices));
+                loadDevices();
+                this.reset();
+            });
+
+            loadDevices();
+        </script>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

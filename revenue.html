@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收益管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="software.html">软件管理</a></li>
+            <li><a href="#">收益管理</a></li>
+            <li><a href="dispatch.html">派费管理</a></li>
+            <li><a href="record.html">记录管理</a></li>
+            <li><a href="conversion.html">转化管理</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="form-container">
+            <h2>收益管理</h2>
+            <form id="revenueForm">
+                <div class="form-group">
+                    <label for="deviceName">设备名称：</label>
+                    <select id="deviceName" required>
+                        <option value="">请选择设备</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="softwareName">软件名称：</label>
+                    <select id="softwareName" required>
+                        <option value="">请选择软件</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="coinAmount">金币数量：</label>
+                    <input type="number" id="coinAmount" required>
+                </div>
+                <button type="submit">提交</button>
+            </form>
+        </div>
+        <div class="revenue-list">
+            <h2>收益记录</h2>
+            <table id="revenueTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>设备名称</th>
+                        <th>软件名称</th>
+                        <th>金币数量</th>
+                        <th>收益</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editRevenueModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditRevenueModal()">&times;</span>
+            <h2>编辑收益记录</h2>
+            <form id="editRevenueForm">
+                <input type="hidden" id="editRevenueIndex">
+                <div class="form-group">
+                    <label for="editRevenueCoinAmount">金币数量：</label>
+                    <input type="number" id="editRevenueCoinAmount" required>
+                </div>
+                <button type="submit">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const devices = JSON.parse(localStorage.getItem('devices')) || [];
+            const deviceSelect = document.getElementById('deviceName');
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceName;
+                option.textContent = device.deviceName;
+                deviceSelect.appendChild(option);
+            });
+
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            const softwareSelect = document.getElementById('softwareName');
+            softwares.forEach(software => {
+                const option = document.createElement('option');
+                option.value = software.softwareName;
+                option.textContent = software.softwareName;
+                softwareSelect.appendChild(option);
+            });
+
+            document.getElementById('revenueForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const deviceName = document.getElementById('deviceName').value;
+                const softwareName = document.getElementById('softwareName').value;
+                const coinAmount = parseFloat(document.getElementById('coinAmount').value);
+                const software = softwares.find(s => s.softwareName === softwareName);
+                const revenue = coinAmount / software.exchangeRate;
+                
+                // Helper function to format date as YYYY-MM-DD
+                function formatDate(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                }
+
+                const date = formatDate(new Date());
+
+                const revenueRecord = { date, deviceName, softwareName, coinAmount, revenue };
+                let revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+                                const existingIndex = revenues.findIndex(r => 
+                    r.date === date && 
+                    r.deviceName === deviceName && 
+                    r.softwareName === softwareName
+                );
+
+                if (existingIndex > -1) {
+                    // Replace existing record
+                    revenues[existingIndex] = revenueRecord;
+                } else {
+                    // Add new record
+                    revenues.push(revenueRecord);
+                }
+
+                localStorage.setItem('revenues', JSON.stringify(revenues));
+
+                loadRevenues();
+                this.reset();
+            });
+
+            loadRevenues(); // 在页面加载时调用，确保数据持久化
+
+            // Populate device and software dropdowns
+            populateDropdowns();
+        });
+
+        function deleteRevenue(index) {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            revenues.splice(index, 1);
+            localStorage.setItem('revenues', JSON.stringify(revenues));
+            loadRevenues();
+        }
+
+        function loadRevenues() {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const tbody = document.querySelector('#revenueTable tbody');
+            tbody.innerHTML = revenues.map((revenue, index) => `
+                <tr>
+                    <td>${revenue.date}</td>
+                    <td>${revenue.deviceName}</td>
+                    <td>${revenue.softwareName}</td>
+                    <td>${revenue.coinAmount}</td>
+                    <td>${revenue.revenue.toFixed(2)}</td>
+                    <td>
+                        <button onclick="editRevenue(${index})">编辑</button>
+                        <button onclick="deleteRevenue(${index})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+
+        // Function to populate device and software dropdowns
+        function populateDropdowns() {
+            const deviceSelect = document.getElementById('deviceName');
+            const softwareSelect = document.getElementById('softwareName');
+
+            // Load devices from localStorage
+            const devices = JSON.parse(localStorage.getItem('devices')) || [];
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceName;
+                option.textContent = device.deviceName;
+                deviceSelect.appendChild(option);
+            });
+
+            // Load softwares from localStorage
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            softwares.forEach(software => {
+                const option = document.createElement('option');
+                option.value = software.softwareName;
+                option.textContent = software.softwareName;
+                softwareSelect.appendChild(option);
+            });
+        }
+
+        // Function to open the edit modal and populate the form
+        function editRevenue(index) {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const revenueToEdit = revenues[index];
+            
+            document.getElementById('editRevenueIndex').value = index;
+            document.getElementById('editRevenueCoinAmount').value = revenueToEdit.coinAmount;
+
+            document.getElementById('editRevenueModal').style.display = 'block';
+        }
+
+        // Function to close the edit modal
+        function closeEditRevenueModal() {
+            document.getElementById('editRevenueModal').style.display = 'none';
+        }
+
+        // Function to save the edited revenue record
+        document.getElementById('editRevenueForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const index = document.getElementById('editRevenueIndex').value;
+            const editedCoinAmount = parseFloat(document.getElementById('editRevenueCoinAmount').value);
+
+            let revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const revenueToUpdate = revenues[index];
+            
+            // Find the software to calculate the new revenue
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            const software = softwares.find(s => s.softwareName === revenueToUpdate.softwareName);
+            const newRevenue = editedCoinAmount / software.exchangeRate;
+
+            // Update the revenue record
+            revenueToUpdate.coinAmount = editedCoinAmount;
+            revenueToUpdate.revenue = newRevenue;
+
+            localStorage.setItem('revenues', JSON.stringify(revenues));
+            loadRevenues();
+            closeEditRevenueModal();
+        });
+
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

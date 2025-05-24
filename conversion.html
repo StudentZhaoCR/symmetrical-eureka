@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>转化管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="software.html">软件管理</a></li>
+            <li><a href="revenue.html">收益管理</a></li>
+            <li><a href="dispatch.html">派费管理</a></li>
+            <li><a href="record.html">记录管理</a></li>
+            <li><a href="#">转化管理</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="form-container">
+            <h2>添加转化记录</h2>
+            <form id="conversionForm">
+                <div class="form-group">
+                    <label for="deviceName">选择设备：</label>
+                    <select id="deviceName" required>
+                        <option value="">请选择设备</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="softwareName">选择软件：</label>
+                    <select id="softwareName" required>
+                        <option value="">请选择软件</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="gameName">游戏名称：</label>
+                    <input type="text" id="gameName" required>
+                </div>
+                <button type="submit">添加记录</button>
+            </form>
+        </div>
+
+        <div class="conversion-list">
+            <h2>转化记录列表</h2>
+            <table id="conversionTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>设备</th>
+                        <th>软件</th>
+                        <th>游戏名称</th>
+                        <th>是否已转化</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load existing conversion records on page load
+            loadConversionRecords();
+        });
+
+        // Function to load and display conversion records
+        function loadConversionRecords() {
+            const records = JSON.parse(localStorage.getItem('conversionRecords')) || [];
+            const tbody = document.querySelector('#conversionTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            records.forEach((record, index) => {
+                const row = document.createElement('tr');
+                // Add checks for undefined or null values
+                const deviceName = record.deviceName || '未知设备';
+                const softwareName = record.softwareName || '未知软件';
+
+                row.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${deviceName}</td>
+                    <td>${softwareName}</td>
+                    <td>${record.gameName}</td>
+                    <td class="conversion-status">${record.isConverted ? '是' : '否'}</td>
+                    <td>
+                        <button class="toggle-conversion-btn" data-index="${index}">是</button>
+                        <button class="delete-conversion-btn" data-index="${index}">删除</button>
+                    </td>
+                `;
+                if (record.isConverted) {
+                    row.style.backgroundColor = '#d4edda'; // Green background for converted
+                }
+                tbody.appendChild(row);
+            });
+
+            // Add event listeners to toggle buttons
+            document.querySelectorAll('.toggle-conversion-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = this.getAttribute('data-index');
+                    toggleConversionStatus(index);
+                });
+            });
+
+            // Add event listeners to delete buttons
+            document.querySelectorAll('.delete-conversion-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = this.getAttribute('data-index');
+                    deleteConversionRecord(index);
+                });
+            });
+        }
+
+        // Function to toggle conversion status
+        function toggleConversionStatus(index) {
+            const records = JSON.parse(localStorage.getItem('conversionRecords')) || [];
+            if (index >= 0 && index < records.length) {
+                const record = records[index];
+                if (!record.isConverted) {
+                    if (confirm('确定要将此记录标记为已转化吗？')) {
+                        record.isConverted = true;
+                        localStorage.setItem('conversionRecords', JSON.stringify(records));
+                        loadConversionRecords(); // Reload table to reflect changes
+                    }
+                }
+            }
+        }
+
+        // Function to delete a conversion record
+        function deleteConversionRecord(index) {
+            const records = JSON.parse(localStorage.getItem('conversionRecords')) || [];
+            if (index >= 0 && index < records.length) {
+                if (confirm('确定要删除此记录吗？')) {
+                    records.splice(index, 1);
+                    localStorage.setItem('conversionRecords', JSON.stringify(records));
+                    loadConversionRecords(); // Reload table to reflect changes
+                }
+            } else {
+                console.error('Invalid index for deletion:', index);
+            }
+        }
+
+        // Function to populate device and software dropdowns
+        function populateDropdowns() {
+            const deviceSelect = document.getElementById('deviceName');
+            const softwareSelect = document.getElementById('softwareName');
+
+            // Clear existing options except the first one
+            deviceSelect.innerHTML = '<option value="">请选择设备</option>';
+            softwareSelect.innerHTML = '<option value="">请选择软件</option>';
+
+            // Load devices from localStorage
+            const devices = JSON.parse(localStorage.getItem('devices')) || [];
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceName;
+                option.textContent = device.deviceName;
+                deviceSelect.appendChild(option);
+            });
+
+            // Load softwares from localStorage
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            softwares.forEach(software => {
+                const option = document.createElement('option');
+                option.value = software.softwareName;
+                option.textContent = software.softwareName;
+                softwareSelect.appendChild(option);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load existing conversion records on page load
+            loadConversionRecords();
+            // Populate device and software dropdowns
+            populateDropdowns(); // Call the function here
+        });
+    </script>
+</body>
+</html>

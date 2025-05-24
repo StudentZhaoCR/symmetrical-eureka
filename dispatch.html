@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>派费管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="software.html">软件管理</a></li>
+            <li><a href="revenue.html">收益管理</a></li>
+            <li><a href="#">派费管理</a></li>
+            <li><a href="record.html">记录管理</a></li>
+            <li><a href="conversion.html">转化管理</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="form-container">
+            <h2>派费管理</h2>
+            <form id="dispatchForm">
+                <div class="form-group">
+                    <label for="deviceName">设备名称：</label>
+                    <select id="deviceName" required>
+                        <option value="">请选择设备</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="softwareName">软件名称：</label>
+                    <select id="softwareName" required>
+                        <option value="">请选择软件</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="shopName">店铺名称：</label>
+                    <input type="text" id="shopName" required>
+                </div>
+                <div class="form-group">
+                    <label for="coinAmount">返还金币数：</label>
+                    <input type="number" id="coinAmount">
+                </div>
+                <div class="form-group">
+                    <label for="productAmount">商品金额：</label>
+                    <input type="number" id="productAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="rebateAmount">返利金额：</label>
+                    <select id="rebateAmount" required>
+                        <option value="0.7">0.7元</option>
+                        <option value="0.8">0.8元</option>
+                    </select>
+                </div>
+                <button type="submit">提交</button>
+            </form>
+        </div>
+        <div class="dispatch-list">
+            <h2>派费记录</h2>
+            <button id="zoomDispatchBtn" class="zoom-button">放大</button>
+            <table id="dispatchTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>设备名称</th>
+                        <th>软件名称</th>
+                        <th>店铺名称</th>
+                        <th>金币数</th>
+                        <th>商品金额</th>
+                        <th>返利金额</th>
+                        <th>收益</th>
+                        <th class="zoom-hidden-col">快递</th>
+                        <th class="zoom-hidden-col">派送员</th>
+                        <th class="zoom-hidden-col">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>编辑派费记录</h2>
+            <form id="editForm">
+                <input type="hidden" id="editIndex">
+                <div class="form-group">
+                    <label for="editExpress">快递：</label>
+                    <input type="text" id="editExpress">
+                </div>
+                <div class="form-group">
+                    <label for="editDispatcher">派送员：</label>
+                    <input type="text" id="editDispatcher">
+                </div>
+                <button type="submit">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const devices = JSON.parse(localStorage.getItem('devices')) || [];
+            const deviceSelect = document.getElementById('deviceName');
+            devices.forEach(device => {
+                const option = document.createElement('option');
+                option.value = device.deviceName;
+                option.textContent = device.deviceName;
+                deviceSelect.appendChild(option);
+            });
+
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            const softwareSelect = document.getElementById('softwareName');
+            softwares.forEach(software => {
+                const option = document.createElement('option');
+                option.value = software.softwareName;
+                option.textContent = software.softwareName;
+                softwareSelect.appendChild(option);
+            });
+
+            document.getElementById('dispatchForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const deviceName = document.getElementById('deviceName').value;
+                const softwareName = document.getElementById('softwareName').value;
+                const shopName = document.getElementById('shopName').value;
+                const coinAmount = parseFloat(document.getElementById('coinAmount').value) || 0;
+                const productAmount = parseFloat(document.getElementById('productAmount').value);
+                const rebateAmount = parseFloat(document.getElementById('rebateAmount').value);
+                const software = softwares.find(s => s.softwareName === softwareName);
+                const revenue = (coinAmount / software.exchangeRate) + rebateAmount - productAmount;
+                const date = new Date().toLocaleDateString();
+
+                const dispatchRecord = { date, deviceName, softwareName, shopName, coinAmount, productAmount, rebateAmount, revenue, express: '', dispatcher: '', rebateReceived: false }; // Added express, dispatcher, and rebateReceived fields
+                let dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+                dispatches.push(dispatchRecord);
+                localStorage.setItem('dispatches', JSON.stringify(dispatches));
+                loadDispatches();
+        });
+
+
+            loadDispatches();
+        });
+
+        function loadDispatches() {
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            const tbody = document.querySelector('#dispatchTable tbody');
+            tbody.innerHTML = dispatches.map((dispatch, index) => `
+                <tr class="${dispatch.rebateReceived ? 'rebate-received' : ''}">
+                    <td>${dispatch.date}</td>
+                    <td>${dispatch.deviceName}</td>
+                    <td>${dispatch.softwareName}</td>
+                    <td>${dispatch.shopName}</td>
+                    <td>${dispatch.coinAmount}</td>
+                    <td>${dispatch.productAmount}</td>
+                    <td>${dispatch.rebateAmount}</td>
+                    <td>${dispatch.revenue.toFixed(2)}</td>
+                    <td class="zoom-hidden-col">${dispatch.express}</td>
+                    <td class="zoom-hidden-col">${dispatch.dispatcher}</td>
+                    <td class="zoom-hidden-col"><button onclick="deleteDispatch(${index})">删除</button><button onclick="editDispatch(${index})">编辑</button></td>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" ${dispatch.rebateReceived ? 'checked' : ''} onclick="toggleRebateStatus(${index})">
+                            <span class="slider round"></span>
+                        </label>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteDispatch(index) {
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            dispatches.splice(index, 1);
+            localStorage.setItem('dispatches', JSON.stringify(dispatches));
+            loadDispatches();
+        }
+
+        function toggleRebateStatus(index) {
+            let dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            dispatches[index].rebateReceived = !dispatches[index].rebateReceived;
+            localStorage.setItem('dispatches', JSON.stringify(dispatches));
+            
+            // Reload the dispatches to update the UI
+            loadDispatches();
+        }
+
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

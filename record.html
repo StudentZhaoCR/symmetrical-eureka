@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>记录管理</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .software-revenue-comparison-container {
+            margin-top: 10px;
+            margin-left: 5px;
+            height: 640px;
+            width: 530px;
+            padding: 15px;
+            border: 2px solid #0056b3; 
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .software-revenue-comparison-container h2 {
+            margin-top: 20px;
+            color: #0056b3;
+        }
+        .chart-container {
+            /* Remove or adjust margins to fit within parent */
+            margin-left: 0;
+            margin-top: 10px;
+            height: 80%; /* Adjust height to fit within parent */
+            width: 100%; /* Adjust width to fit within parent padding */
+         /* Include padding and border in the element's total width and height */
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="software.html">软件管理</a></li>
+            <li><a href="revenue.html">收益管理</a></li>
+            <li><a href="dispatch.html">派费管理</a></li>
+            <li><a href="#">记录管理</a></li>
+            <li><a href="conversion.html">转化管理</a></li>
+        </ul>
+    </div>
+   
+    <div class="content">
+        <div class="daily-revenue-container">
+            <h2>每日收益统计</h2>
+            <div class="daily-revenue-box">
+            <div class="filter-container">
+                <label for="filterDate">选择日期：</label>
+                <input type="date" id="filterDate">
+            </div>
+            <table id="dailyRevenueTable">
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>总收益</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            </div>
+        </div>
+        <!-- 日收益统计 -->
+        <div class="total-revenue-container">
+            <h2>总收益统计</h2>
+            <div class="total-revenue-box">
+                <p>总收益：<span id="totalRevenue">0.00</span></p>
+            </div>
+        </div>
+        <!-- 派费管理 -->
+        <div class="total-dispatch-container">
+            <h2>总派费统计</h2>
+            <div class="total-revenue-box">
+                <p>总派费：<span id="totalDispatch">0.00</span></p>
+            </div>
+        </div>
+
+        <div class="daily-dispatch-revenue-container">
+            <h2>每日派费统计</h2>
+            <div class="daily-revenue-box">
+                <div class="filter-container">
+                    <label for="filterDispatchDate">选择日期：</label>
+                    <input type="date" id="filterDispatchDate">
+                </div>
+                <table id="dailyDispatchRevenueTable">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>总派费</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="software-revenue-comparison-container">
+            <h2>按软件统计设备收益</h2>
+            <div class="filter-container">
+                <label for="filterSoftware">选择软件：</label>
+                <select id="filterSoftware">
+                    <option value="">请选择软件</option>
+                </select>
+            </div>
+            <div id="deviceRevenueChart" class="chart-container"></div>
+        </div>
+    </div>
+
+        <div class="chart-selection-container">
+            <h2>每日统计折线图</h2>
+            <div class="filter-container">
+                <label for="chartDataType">选择数据类型：</label>
+                <select id="chartDataType">
+                    <option value="revenue">每日收益</option>
+                    <option value="dispatch">每日派费</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="dailyStatsChart"></canvas>
+            </div>
+        </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterDateInput = document.getElementById('filterDate');
+            // 获取当前日期并格式化为 YYYY-MM-DD
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+
+            // 设置日期输入框的默认值为当前日期
+            filterDateInput.value = formattedDate;
+
+            filterDateInput.addEventListener('change', function() {
+                loadDailyRevenues(this.value);
+            });
+            loadDailyRevenues(); // Call without filter on initial load
+            loadTotalRevenue(); // Load total revenue on initial load
+
+            const filterDispatchDateInput = document.getElementById('filterDispatchDate');
+            // 设置日期输入框的默认值为当前日期
+            filterDispatchDateInput.value = formattedDate;
+
+            filterDispatchDateInput.addEventListener('change', function() {
+                loadDailyDispatches(this.value);
+            });
+            loadDailyDispatches(); // Call without filter on initial load
+            loadTotalDispatch(); // Load total dispatch on initial load
+        });
+
+        function loadTotalDispatch() {
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            const totalDispatch = dispatches.reduce((sum, record) => sum + parseFloat(record.revenue), 0);
+            document.getElementById('totalDispatch').textContent = totalDispatch.toFixed(2);
+        }
+
+        function loadDailyRevenues(filterDate) {
+            console.log('loadDailyRevenues called with filterDate:', filterDate);
+
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            console.log('Loaded revenues:', revenues);
+
+            // Helper function to format date string as YYYY-MM-DD
+            function formatRevenueDate(dateString) {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            const dailyRevenues = revenues.reduce((acc, revenue) => {
+                const formattedDate = formatRevenueDate(revenue.date); // Ensure YYYY-MM-DD format
+                if (!acc[formattedDate]) {
+                    acc[formattedDate] = 0;
+                }
+                acc[formattedDate] += revenue.revenue;
+                return acc;
+            }, {});
+            console.log('Aggregated dailyRevenues:', dailyRevenues);
+
+            const tbody = document.querySelector('#dailyRevenueTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            const sortedDates = Object.keys(dailyRevenues).sort(); // Sort dates
+
+            // Determine if a filter is actively applied
+            const isFilterActive = (filterDate && filterDate !== '');
+            console.log('Is filter active?', isFilterActive);
+
+            // If a filter is active, check if the filterDate exists in dailyRevenues
+            if (isFilterActive) {
+                console.log('Filter is active. Checking for date:', filterDate);
+                console.log('Data for filter date:', dailyRevenues[filterDate]);
+                if (dailyRevenues.hasOwnProperty(filterDate)) {
+                    console.log('Found data for filtered date:', dailyRevenues[filterDate]);
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${filterDate}</td>
+                        <td>${dailyRevenues[filterDate].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } else {
+                console.log('No filter active. Displaying all dates.');
+                // If no filter is active, display all dates
+                for (const date of sortedDates) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${date}</td>
+                        <td>${dailyRevenues[date].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+        }
+
+        function loadTotalRevenue() {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const totalRevenue = revenues.reduce((sum, record) => sum + record.revenue, 0);
+            document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(2);
+        }
+
+        function loadDailyDispatches(filterDate) {
+            console.log('loadDailyDispatches called with filterDate:', filterDate);
+
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            console.log('Loaded dispatches:', dispatches);
+
+            // Helper function to format date string as YYYY-MM-DD
+            function formatDispatchDate(dateString) {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            const dailyDispatches = dispatches.reduce((acc, dispatch) => {
+                const formattedDate = formatDispatchDate(dispatch.date); // Ensure YYYY-MM-DD format
+                if (!acc[formattedDate]) {
+                    acc[formattedDate] = 0;
+                }
+                acc[formattedDate] += parseFloat(dispatch.revenue); // Assuming dispatchAmount is the field for dispatch revenue
+                return acc;
+            }, {});
+            console.log('Aggregated dailyDispatches:', dailyDispatches);
+
+            const tbody = document.querySelector('#dailyDispatchRevenueTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            const sortedDates = Object.keys(dailyDispatches).sort(); // Sort dates
+
+            // Determine if a filter is actively applied
+            const isFilterActive = (filterDate && filterDate !== '');
+            console.log('Is filter active?', isFilterActive);
+
+            // If a filter is active, check if the filterDate exists in dailyDispatches
+            if (isFilterActive) {
+                console.log('Filter is active. Checking for date:', filterDate);
+                console.log('Data for filter date:', dailyDispatches[filterDate]);
+                if (dailyDispatches.hasOwnProperty(filterDate)) {
+                    console.log('Found data for filtered date:', dailyDispatches[filterDate]);
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${filterDate}</td>
+                        <td>${dailyDispatches[filterDate].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } else {
+                console.log('No filter active. Displaying all dates.');
+                // If no filter is active, display all dates
+                for (const date of sortedDates) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${date}</td>
+                        <td>${dailyDispatches[date].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterDateInput = document.getElementById('filterDate');
+            // 获取当前日期并格式化为 YYYY-MM-DD
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`;
+
+            // 设置日期输入框的默认值为当前日期
+            filterDateInput.value = formattedDate;
+
+            filterDateInput.addEventListener('change', function() {
+                loadDailyRevenues(this.value);
+            });
+            loadDailyRevenues(); // Call without filter on initial load
+            loadTotalRevenue(); // Load total revenue on initial load
+
+            const filterDispatchDateInput = document.getElementById('filterDispatchDate');
+            // 设置日期输入框的默认值为当前日期
+            filterDispatchDateInput.value = formattedDate;
+
+            filterDispatchDateInput.addEventListener('change', function() {
+                loadDailyDispatches(this.value);
+            });
+            loadDailyDispatches(); // Call without filter on initial load
+            loadTotalDispatch(); // Load total dispatch on initial load
+
+            // 新增：填充软件下拉列表并添加事件监听器
+            populateSoftwareDropdown();
+            document.getElementById('filterSoftware').addEventListener('change', function() {
+                renderDeviceRevenueChart(this.value);
+            });
+
+            // 新增：每日统计折线图逻辑
+            const chartDataTypeSelect = document.getElementById('chartDataType');
+            let dailyStatsChartInstance = null; // To hold the chart instance
+
+            // Function to render the daily stats chart
+            function renderDailyStatsChart(dataType) {
+                const chartContainer = document.getElementById('dailyStatsChart').getContext('2d');
+
+                // Destroy existing chart if it exists
+                if (dailyStatsChartInstance) {
+                    dailyStatsChartInstance.destroy();
+                }
+
+                let data = {};
+                let label = '';
+                let borderColor = '';
+                let backgroundColor = '';
+
+                if (dataType === 'revenue') {
+                    data = getDailyRevenuesData(); // Get aggregated daily revenue data
+                    label = '每日收益';
+                    borderColor = 'rgba(75, 192, 192, 1)';
+                    backgroundColor = 'rgba(75, 192, 192, 0.6)';
+                } else if (dataType === 'dispatch') {
+                    data = getDailyDispatchesData(); // Get aggregated daily dispatch data
+                    label = '每日派费';
+                    borderColor = 'rgba(255, 99, 132, 1)';
+                    backgroundColor = 'rgba(255, 99, 132, 0.6)';
+                }
+
+                const dates = Object.keys(data).sort();
+                const amounts = dates.map(date => data[date]);
+
+                dailyStatsChartInstance = new Chart(chartContainer, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: label,
+                            data: amounts,
+                            borderColor: borderColor,
+                            backgroundColor: backgroundColor,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '日期'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: '金额 (元)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Function to get aggregated daily revenue data
+            function getDailyRevenuesData() {
+                const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+                const dailyRevenues = revenues.reduce((acc, revenue) => {
+                    const date = new Date(revenue.date);
+                    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; // Ensure YYYY-MM-DD format
+                    if (!acc[formattedDate]) {
+                        acc[formattedDate] = 0;
+                    }
+                    acc[formattedDate] += revenue.revenue;
+                    return acc;
+                }, {});
+                return dailyRevenues;
+            }
+
+            // Function to get aggregated daily dispatch data
+            function getDailyDispatchesData() {
+                const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+                const dailyDispatches = dispatches.reduce((acc, dispatch) => {
+                    const date = new Date(dispatch.date);
+                    const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; // Ensure YYYY-MM-DD format
+                    if (!acc[formattedDate]) {
+                        acc[formattedDate] = 0;
+                    }
+                    acc[formattedDate] += parseFloat(dispatch.revenue); // Assuming dispatch.revenue is the field for dispatch amount
+                    return acc;
+                }, {});
+                return dailyDispatches;
+            }
+
+            // Initial chart render (default to revenue)
+            renderDailyStatsChart('revenue');
+
+            // Add event listener to the data type selector
+            chartDataTypeSelect.addEventListener('change', function() {
+                renderDailyStatsChart(this.value);
+            });
+        });
+
+        function loadTotalDispatch() {
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            const totalDispatch = dispatches.reduce((sum, record) => sum + parseFloat(record.revenue), 0);
+            document.getElementById('totalDispatch').textContent = totalDispatch.toFixed(2);
+        }
+
+        function loadDailyRevenues(filterDate) {
+            console.log('loadDailyRevenues called with filterDate:', filterDate);
+
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            console.log('Loaded revenues:', revenues);
+
+            // Helper function to format date string as YYYY-MM-DD
+            function formatRevenueDate(dateString) {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            const dailyRevenues = revenues.reduce((acc, revenue) => {
+                const formattedDate = formatRevenueDate(revenue.date); // Ensure YYYY-MM-DD format
+                if (!acc[formattedDate]) {
+                    acc[formattedDate] = 0;
+                }
+                acc[formattedDate] += revenue.revenue;
+                return acc;
+            }, {});
+            console.log('Aggregated dailyRevenues:', dailyRevenues);
+
+            const tbody = document.querySelector('#dailyRevenueTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            const sortedDates = Object.keys(dailyRevenues).sort(); // Sort dates
+
+            // Determine if a filter is actively applied
+            const isFilterActive = (filterDate && filterDate !== '');
+            console.log('Is filter active?', isFilterActive);
+
+            // If a filter is active, check if the filterDate exists in dailyRevenues
+            if (isFilterActive) {
+                console.log('Filter is active. Checking for date:', filterDate);
+                console.log('Data for filter date:', dailyRevenues[filterDate]);
+                if (dailyRevenues.hasOwnProperty(filterDate)) {
+                    console.log('Found data for filtered date:', dailyRevenues[filterDate]);
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${filterDate}</td>
+                        <td>${dailyRevenues[filterDate].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } else {
+                console.log('No filter active. Displaying all dates.');
+                // If no filter is active, display all dates
+                for (const date of sortedDates) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${date}</td>
+                        <td>${dailyRevenues[date].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+        }
+
+        function loadTotalRevenue() {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const totalRevenue = revenues.reduce((sum, record) => sum + record.revenue, 0);
+            document.getElementById('totalRevenue').textContent = totalRevenue.toFixed(2);
+        }
+
+        function loadDailyDispatches(filterDate) {
+            console.log('loadDailyDispatches called with filterDate:', filterDate);
+
+            const dispatches = JSON.parse(localStorage.getItem('dispatches')) || [];
+            console.log('Loaded dispatches:', dispatches);
+
+            // Helper function to format date string as YYYY-MM-DD
+            function formatDispatchDate(dateString) {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要加1
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            const dailyDispatches = dispatches.reduce((acc, dispatch) => {
+                const formattedDate = formatDispatchDate(dispatch.date); // Ensure YYYY-MM-DD format
+                if (!acc[formattedDate]) {
+                    acc[formattedDate] = 0;
+                }
+                acc[formattedDate] += parseFloat(dispatch.revenue); // Assuming dispatchAmount is the field for dispatch revenue
+                return acc;
+            }, {});
+            console.log('Aggregated dailyDispatches:', dailyDispatches);
+
+            const tbody = document.querySelector('#dailyDispatchRevenueTable tbody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            const sortedDates = Object.keys(dailyDispatches).sort(); // Sort dates
+
+            // Determine if a filter is actively applied
+            const isFilterActive = (filterDate && filterDate !== '');
+            console.log('Is filter active?', isFilterActive);
+
+            // If a filter is active, check if the filterDate exists in dailyDispatches
+            if (isFilterActive) {
+                console.log('Filter is active. Checking for date:', filterDate);
+                console.log('Data for filter date:', dailyDispatches[filterDate]);
+                if (dailyDispatches.hasOwnProperty(filterDate)) {
+                    console.log('Found data for filtered date:', dailyDispatches[filterDate]);
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${filterDate}</td>
+                        <td>${dailyDispatches[filterDate].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } else {
+                console.log('No filter active. Displaying all dates.');
+                // If no filter is active, display all dates
+                for (const date of sortedDates) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${date}</td>
+                        <td>${dailyDispatches[date].toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            }
+        }
+
+        // 新增：填充软件下拉列表
+        function populateSoftwareDropdown() {
+            const softwareSelect = document.getElementById('filterSoftware');
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const softwareNames = [...new Set(revenues.map(revenue => revenue.softwareName))]; // Get unique software names
+
+            softwareNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                softwareSelect.appendChild(option);
+            });
+        }
+
+        // 新增：渲染设备收益对比图表
+        let deviceRevenueChartInstance = null; // To hold the chart instance
+
+        function renderDeviceRevenueChart(selectedSoftware) {
+            const revenues = JSON.parse(localStorage.getItem('revenues')) || [];
+            const chartContainer = document.getElementById('deviceRevenueChart');
+
+            // Clear previous chart if exists
+            if (deviceRevenueChartInstance) {
+                deviceRevenueChartInstance.destroy();
+            }
+
+            // Filter revenues by selected software
+            const filteredRevenues = revenues.filter(revenue => revenue.softwareName === selectedSoftware);
+
+            // Aggregate revenue by device
+            const deviceRevenues = filteredRevenues.reduce((acc, revenue) => {
+                if (!acc[revenue.deviceName]) {
+                    acc[revenue.deviceName] = 0;
+                }
+                acc[revenue.deviceName] += revenue.revenue;
+                return acc;
+            }, {});
+
+            const deviceNames = Object.keys(deviceRevenues);
+            const revenueAmounts = Object.values(deviceRevenues);
+
+            if (deviceNames.length === 0) {
+                chartContainer.innerHTML = '<p>无数据可显示。</p>';
+                return;
+            }
+
+            // Create a canvas element for the chart
+            chartContainer.innerHTML = '<canvas id="deviceRevenueCanvas"></canvas>';
+            const ctx = document.getElementById('deviceRevenueCanvas').getContext('2d');
+
+            deviceRevenueChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: deviceNames,
+                    datasets: [{
+                        label: `${selectedSoftware} 在不同设备上的收益`,
+                        data: revenueAmounts,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '收益 (元)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '设备名称'
+                            }
+                        }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+</html>

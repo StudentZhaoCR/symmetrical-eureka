@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>软件管理</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="sidebar">
+        <ul>
+            <li><a href="device.html">设备管理</a></li>
+            <li><a href="#">软件管理</a></li>
+            <li><a href="revenue.html">收益管理</a></li>
+            <li><a href="dispatch.html">派费管理</a></li>
+            <li><a href="record.html">记录管理</a></li>
+            <li><a href="conversion.html">转化管理</a></li>
+        </ul>
+    </div>
+    <div class="content">
+        <div class="form-container">
+            <h2>软件管理</h2>
+            <form id="softwareForm">
+                <div class="form-group">
+                    <label for="softwareName">软件名称：</label>
+                    <input type="text" id="softwareName" required>
+                </div>
+                <div class="form-group">
+                    <label for="exchangeRate">兑换比例：</label>
+                    <input type="number" id="exchangeRate" required>
+                </div>
+                <button type="submit">提交</button>
+            </form>
+        </div>
+        <div class="software-list">
+            <h2>软件列表</h2>
+            <table id="softwareTable">
+                <thead>
+                    <tr>
+                        <th>软件名称</th>
+                        <th>兑换比例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+        
+    </div>
+    <script src="script.js"></script>
+    <script>
+        document.getElementById('softwareForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const softwareName = document.getElementById('softwareName').value;
+            const exchangeRate = document.getElementById('exchangeRate').value;
+            const software = { softwareName, exchangeRate };
+            let softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            softwares.push(software);
+            localStorage.setItem('softwares', JSON.stringify(softwares));
+            loadSoftwares();
+            this.reset();
+        });
+
+        function deleteSoftware(index) {
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            softwares.splice(index, 1);
+            localStorage.setItem('softwares', JSON.stringify(softwares));
+            loadSoftwares();
+        }
+
+        function loadSoftwares() {
+            const softwares = JSON.parse(localStorage.getItem('softwares')) || [];
+            const tbody = document.getElementById('softwareTable').querySelector('tbody');
+            tbody.innerHTML = softwares.map(software => `
+                <tr>
+                    <td>${software.softwareName}</td>
+                    <td>${software.exchangeRate}</td>
+                    <td><button onclick="deleteSoftware(${softwares.indexOf(software)})">删除</button></td>
+                </tr>
+            `).join('');
+        }
+
+        loadSoftwares();
+    </script>
+</body>
+</html>
